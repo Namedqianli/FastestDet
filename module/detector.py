@@ -1,22 +1,38 @@
+from turtle import back
 import torch
 import torch.nn as nn
 
 from .shufflenetv2 import ShuffleNetV2
 from .custom_layers import DetectHead, SPP
+from .mobilenetv2 import MobileNetV2
+
+__all__ = [
+    "ShuffleNet_V2",
+    "MobileNet_V2",
+]
 
 class Detector(nn.Module):
-    def __init__(self, category_num, load_param):
+    def __init__(self, category_num, load_param, backbone='ShuffleNet_V2'):
         super(Detector, self).__init__()
 
-        self.stage_repeats = [4, 8, 4]
-        self.stage_out_channels = [-1, 24, 48, 96, 192]
-        self.backbone = ShuffleNetV2(self.stage_repeats, self.stage_out_channels, load_param)
+        if backbone == 'ShuffleNetV2':
+            self.stage_repeats = [4, 8, 4]
+            self.stage_out_channels = [-1, 24, 48, 96, 192]
+            self.backbone = ShuffleNetV2(self.stage_repeats, self.stage_out_channels, load_param)
 
-        self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
-        self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
-        self.SPP = SPP(sum(self.stage_out_channels[-3:]), self.stage_out_channels[-2])
-         
-        self.detect_head = DetectHead(self.stage_out_channels[-2], category_num)
+            self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+            self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+            self.SPP = SPP(sum(self.stage_out_channels[-3:]), self.stage_out_channels[-2])
+            
+            self.detect_head = DetectHead(self.stage_out_channels[-2], category_num)
+        elif backbone == 'MobileNet_V2':
+            self.backbone = MobileNetV2()
+
+            self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+            self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+            self.SPP = SPP(448, 96)
+            
+            self.detect_head = DetectHead(96, category_num)
 
     def forward(self, x):
         P1, P2, P3 = self.backbone(x)
@@ -29,7 +45,7 @@ class Detector(nn.Module):
         return self.detect_head(y)
 
 if __name__ == "__main__":
-    model = Detector(80, False)
+    model = Detector(80, False, 'MobileNet_V2')
     test_data = torch.rand(1, 3, 352, 352)
     torch.onnx.export(model,                    #model being run
                      test_data,                 # model input (or a tuple for multiple inputs)

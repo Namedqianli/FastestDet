@@ -21,6 +21,8 @@ class LoadYaml:
         self.input_height = data["MODEL"]["INPUT_HEIGHT"]
         
         self.category_num = data["MODEL"]["NC"]
+
+        self.backbone = data["MODEL"]["BACKBONE"]
         
         print("Load yaml sucess...")
 

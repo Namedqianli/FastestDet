@@ -33,10 +33,10 @@ class FastestDet:
         # 初始化模型结构
         if opt.weight is not None:
             print("load weight from:%s"%opt.weight)
-            self.model = Detector(self.cfg.category_num, True).to(device)
+            self.model = Detector(self.cfg.category_num, True, self.cfg.backbone).to(device)
             self.model.load_state_dict(torch.load(opt.weight))
         else:
-            self.model = Detector(self.cfg.category_num, False).to(device)
+            self.model = Detector(self.cfg.category_num, False, self.cfg.backbone).to(device)
 
         # # 打印网络各层的张量维度
         summary(self.model, input_size=(3, self.cfg.input_height, self.cfg.input_width))
