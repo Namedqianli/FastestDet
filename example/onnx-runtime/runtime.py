@@ -2,6 +2,9 @@ import cv2
 import time
 import numpy as np
 import onnxruntime 
+import argparse
+
+from torch import le
 
 # sigmoid函数
 def sigmoid(x):
@@ -109,40 +112,64 @@ def detection(session, img, input_width, input_height, thresh):
                 x1, y1, x2, y2 = int(x1 * W), int(y1 * H), int(x2 * W), int(y2 * H)
 
                 pred.append([x1, y1, x2, y2, score, cls_index])
-
+    if len(pred) == 0:
+        return []
     return nms(np.array(pred))
 
 if __name__ == '__main__':
-    # 读取图片
-    img = cv2.imread("3.jpg")
+    # 指定训练配置文件
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--labelnames', type=str, default="", help='class label names')
+    parser.add_argument('--imgsz', type=int, default=352, help='input size')
+    parser.add_argument('--onnx', type=str, default=None, help='The path of onnx model')
+    parser.add_argument('--src', type=str, default='', help='The path of test image or 0 for webcam')
+    parser.add_argument('--thresh', type=float, default=0.65, help='The path of test image')
+
+    opt = parser.parse_args()
+
+    if opt.src == '0':
+        camera = cv2.VideoCapture(0)
+    else:
+        # 读取图片
+        img = cv2.imread(opt.src)
     # 模型输入的宽高
-    input_width, input_height = 352, 352
+    input_width, input_height = opt.imgsz, opt.imgsz
     # 加载模型
-    session = onnxruntime.InferenceSession('FastestDet.onnx')
-    # 目标检测
-    start = time.perf_counter()
-    bboxes = detection(session, img, input_width, input_height, 0.65)
-    end = time.perf_counter()
-    time = (end - start) * 1000.
-    print("forward time:%fms"%time)
+    session = onnxruntime.InferenceSession(opt.onnx)
 
     # 加载label names
     names = []
-    with open("coco.names", 'r') as f:
+    with open(opt.labelnames, 'r') as f:
 	    for line in f.readlines():
 	        names.append(line.strip())
-            
-    print("=================box info===================")
-    for b in bboxes:
-        print(b)
-        obj_score, cls_index = b[4], int(b[5])
-        x1, y1, x2, y2 = int(b[0]), int(b[1]), int(b[2]), int(b[3])
 
-        #绘制检测框
-        cv2.rectangle(img, (x1,y1), (x2, y2), (255, 255, 0), 2)
-        cv2.putText(img, '%.2f' % obj_score, (x1, y1 - 5), 0, 0.7, (0, 255, 0), 2)
-        cv2.putText(img, names[cls_index], (x1, y1 - 25), 0, 0.7, (0, 255, 0), 2)
-	
-    cv2.imwrite("result.jpg", img)
+    while True:
+        if opt.src == '0':
+            ret, img = camera.read()
+            if ret == False:
+                break
+        # 目标检测
+        # start = time.perf_counter()
+        bboxes = detection(session, img, input_width, input_height, opt.thresh)
+        # end = time.perf_counter()
+        # time = (end - start) * 1000.
+        # print("forward time:%fms"%time)
+
+        print("=================box info===================")
+        for b in bboxes:
+            print(b)
+            obj_score, cls_index = b[4], int(b[5])
+            x1, y1, x2, y2 = int(b[0]), int(b[1]), int(b[2]), int(b[3])
+
+            #绘制检测框
+            cv2.rectangle(img, (x1,y1), (x2, y2), (255, 255, 0), 2)
+            cv2.putText(img, '%.2f' % obj_score, (x1, y1 - 5), 0, 0.7, (0, 255, 0), 2)
+            cv2.putText(img, names[cls_index], (x1, y1 - 25), 0, 0.7, (0, 255, 0), 2)
+        if opt.src == '0':
+            cv2.imshow('result', img)
+            cv2.waitKey(1)
+        else:
+            cv2.imwrite("result.jpg", img)
+            break
 
 
