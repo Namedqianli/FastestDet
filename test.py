@@ -43,7 +43,7 @@ if __name__ == '__main__':
 
     # 模型加载
     print("load weight from:%s"%opt.weight)
-    model = Detector(cfg.category_num, True).to(device)
+    model = Detector(cfg.category_num, True, cfg.backbone).to(device)
     model.load_state_dict(torch.load(opt.weight, map_location=device))
     #sets the module in eval node
     model.eval()
