@@ -15,7 +15,7 @@ class Detector(nn.Module):
     def __init__(self, category_num, load_param, backbone='ShuffleNet_V2'):
         super(Detector, self).__init__()
 
-        if backbone == 'ShuffleNetV2':
+        if backbone == 'ShuffleNet_V2':
             self.stage_repeats = [4, 8, 4]
             self.stage_out_channels = [-1, 24, 48, 96, 192]
             self.backbone = ShuffleNetV2(self.stage_repeats, self.stage_out_channels, load_param)
