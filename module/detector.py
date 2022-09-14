@@ -2,6 +2,8 @@ from turtle import back
 import torch
 import torch.nn as nn
 
+from module.mobilenetv3 import MobileNetV3
+
 from .shufflenetv2 import ShuffleNetV2
 from .custom_layers import DetectHead, SPP
 from .mobilenetv2 import MobileNetV2
@@ -30,14 +32,28 @@ class Detector(nn.Module):
 
             self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
             self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
-            self.SPP = SPP(448, 96)
+            self.SPP = SPP(448, 224)
             
-            self.detect_head = DetectHead(96, category_num)
+            self.detect_head = DetectHead(224, category_num)
+        elif backbone == 'MobileNet_V3_LARGE':
+            self.backbone = MobileNetV3(mode='large')
+
+            self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+            self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+            self.SPP = SPP(280, 140)
+
+            self.detect_head = DetectHead(140, category_num)
 
     def forward(self, x):
         P1, P2, P3 = self.backbone(x)
+        print(P1.shape)
+        print(P2.shape)
+        print(P3.shape)
         P3 = self.upsample(P3)
         P1 = self.avg_pool(P1)
+        print(P1.shape)
+        print(P2.shape)
+        print(P3.shape)
         P = torch.cat((P1, P2, P3), dim=1)
 
         y = self.SPP(P)
@@ -45,7 +61,7 @@ class Detector(nn.Module):
         return self.detect_head(y)
 
 if __name__ == "__main__":
-    model = Detector(80, False, 'MobileNet_V2')
+    model = Detector(80, False, 'MobileNet_V3_LARGE')
     test_data = torch.rand(1, 3, 352, 352)
     torch.onnx.export(model,                    #model being run
                      test_data,                 # model input (or a tuple for multiple inputs)
