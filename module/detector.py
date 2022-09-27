@@ -7,6 +7,8 @@ from module.mobilenetv3 import MobileNetV3
 from .shufflenetv2 import ShuffleNetV2
 from .custom_layers import DetectHead, SPP
 from .mobilenetv2 import MobileNetV2
+from .mobilenetv3 import MobileNetV3
+from .repvgg import *
 
 __all__ = [
     "ShuffleNet_V2",
@@ -43,17 +45,26 @@ class Detector(nn.Module):
             self.SPP = SPP(280, 140)
 
             self.detect_head = DetectHead(140, category_num)
+        elif backbone == 'RepVGG_A1':
+            self.backbone = get_RepVGG_func_by_name('RepVGG-A1')(deploy=False, use_checkpoint=False)
 
+            self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+            self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+            self.SPP = SPP(896, 448)
+
+            self.detect_head = DetectHead(448, category_num)
+        elif backbone == 'RepVGG_A0':
+            self.backbone = get_RepVGG_func_by_name('RepVGG-A0')(deploy=False, use_checkpoint=False)
+
+            self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+            self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+            self.SPP = SPP(672, 336)
+
+            self.detect_head = DetectHead(336, category_num)
     def forward(self, x):
         P1, P2, P3 = self.backbone(x)
-        print(P1.shape)
-        print(P2.shape)
-        print(P3.shape)
         P3 = self.upsample(P3)
         P1 = self.avg_pool(P1)
-        print(P1.shape)
-        print(P2.shape)
-        print(P3.shape)
         P = torch.cat((P1, P2, P3), dim=1)
 
         y = self.SPP(P)

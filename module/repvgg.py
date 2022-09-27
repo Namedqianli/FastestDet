@@ -3,12 +3,14 @@
 # Github source: https://github.com/DingXiaoH/RepVGG
 # Licensed under The MIT License [see LICENSE for details]
 # --------------------------------------------------------
+from venv import create
 import torch.nn as nn
 import numpy as np
 import torch
 import copy
-from se_block import SEBlock
 import torch.utils.checkpoint as checkpoint
+
+from .se_block import SEBlock
 
 def conv_bn(in_channels, out_channels, kernel_size, stride, padding, groups=1):
     result = nn.Sequential()
@@ -180,16 +182,26 @@ class RepVGG(nn.Module):
 
     def forward(self, x):
         out = self.stage0(x)
+        stage_out = []
         for stage in (self.stage1, self.stage2, self.stage3, self.stage4):
             for block in stage:
                 if self.use_checkpoint:
                     out = checkpoint.checkpoint(block, out)
                 else:
                     out = block(out)
-        out = self.gap(out)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
+            stage_out.append(out)
+            
+        return stage_out[1], stage_out[2], stage_out[3]
+        # for stage in (self.stage1, self.stage2, self.stage3, self.stage4):
+        #     for block in stage:
+        #         if self.use_checkpoint:
+        #             out = checkpoint.checkpoint(block, out)
+        #         else:
+        #             out = block(out)
+        # out = self.gap(out)
+        # out = out.view(out.size(0), -1)
+        # out = self.linear(out)
+        # return out
 
 
 optional_groupwise_layers = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
@@ -198,11 +210,11 @@ g4_map = {l: 4 for l in optional_groupwise_layers}
 
 def create_RepVGG_A0(deploy=False, use_checkpoint=False):
     return RepVGG(num_blocks=[2, 4, 14, 1], num_classes=1000,
-                  width_multiplier=[0.75, 0.75, 0.75, 2.5], override_groups_map=None, deploy=deploy, use_checkpoint=use_checkpoint)
+                  width_multiplier=[0.75, 0.75, 0.75, 0.75], override_groups_map=None, deploy=deploy, use_checkpoint=use_checkpoint)
 
 def create_RepVGG_A1(deploy=False, use_checkpoint=False):
     return RepVGG(num_blocks=[2, 4, 14, 1], num_classes=1000,
-                  width_multiplier=[1, 1, 1, 2.5], override_groups_map=None, deploy=deploy, use_checkpoint=use_checkpoint)
+                  width_multiplier=[1, 1, 1, 1], override_groups_map=None, deploy=deploy, use_checkpoint=use_checkpoint)
 
 def create_RepVGG_A2(deploy=False, use_checkpoint=False):
     return RepVGG(num_blocks=[2, 4, 14, 1], num_classes=1000,
@@ -301,3 +313,25 @@ def repvgg_model_convert(model:torch.nn.Module, save_path=None, do_copy=True):
     if save_path is not None:
         torch.save(model.state_dict(), save_path)
     return model
+
+if __name__ == '__main__':
+    create = get_RepVGG_func_by_name('RepVGG-A1')
+    net = create(deploy=False, use_checkpoint=False)
+    net.cuda()
+    from torchsummary import summary
+    summary(net, input_size=(3, 112, 112))
+    deploy = repvgg_model_convert(net)
+    # summary(net, input_size=(3, 112, 112))
+    deploy.cuda()
+    deploy.eval()
+    dummy_input = torch.randn(1, 3, 112, 112).cuda()
+    p1, p2, p3 = deploy(dummy_input)
+    print(p1.shape)
+    print(p2.shape)
+    print(p3.shape)
+    # torch.onnx.export(  deploy,                     # model being run
+    #                     dummy_input,                       # model input (or a tuple for multiple inputs)
+    #                     "./test.onnx",       # where to save the model (can be a file or file-like object)
+    #                     export_params=True,        # store the trained parameter weights inside the model file
+    #                     opset_version=11,          # the ONNX version to export the model to
+    #                     do_constant_folding=True)  # whether to execute constant folding for optimization
