@@ -9,6 +9,7 @@ from .custom_layers import DetectHead, SPP
 from .mobilenetv2 import MobileNetV2
 from .mobilenetv3 import MobileNetV3
 from .repvgg import *
+from .mobileone import *
 
 __all__ = [
     "ShuffleNet_V2",
@@ -61,6 +62,17 @@ class Detector(nn.Module):
             self.SPP = SPP(672, 336)
 
             self.detect_head = DetectHead(336, category_num)
+        elif 'MobileOne' in backbone:
+            variant = backbone.split('_')[1]
+            self.backbone = mobileone(variant=variant)
+
+            self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+            self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+            channel = {'s0':1408}
+            self.SPP = SPP(channel[variant], channel[variant] // 2)
+
+            self.detect_head = DetectHead(channel[variant] // 2, category_num)
+
     def forward(self, x):
         P1, P2, P3 = self.backbone(x)
         P3 = self.upsample(P3)

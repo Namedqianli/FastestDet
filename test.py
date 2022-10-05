@@ -8,6 +8,7 @@ from onnxsim import simplify
 import torch
 from utils.tool import *
 from module.detector import Detector
+from module.mobileone import *
 
 if __name__ == '__main__':
     # 指定训练配置文件
@@ -47,6 +48,8 @@ if __name__ == '__main__':
     model.load_state_dict(torch.load(opt.weight, map_location=device))
     #sets the module in eval node
     model.eval()
+    if "MobileOne" in cfg.backbone:
+        model = reparameterize_model(model)
     
     # 数据预处理
     ori_img = cv2.imread(opt.img)
@@ -68,7 +71,7 @@ if __name__ == '__main__':
         model_simp, check = simplify(onnx_model)
         assert check, "Simplified ONNX model could not be validated"
         print("onnx sim sucess...")
-        onnx.save(model_simp, "./FastestDet.onnx")                  
+        onnx.save(model_simp, "./FastestDetSim.onnx")                  
 
     # 导出torchscript模型
     if opt.torchscript:
