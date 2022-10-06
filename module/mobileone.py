@@ -381,7 +381,7 @@ class MobileOne(nn.Module):
 
 
 PARAMS = {
-    "s0": {"width_multipliers": (0.75, 1.0, 1.0, 2.0),
+    "s0": {"width_multipliers": (0.75, 0.75, 0.75, 0.75),
            "num_conv_branches": 4},
     "s1": {"width_multipliers": (1.5, 1.5, 2.0, 2.5)},
     "s2": {"width_multipliers": (1.5, 2.0, 2.5, 4.0)},
