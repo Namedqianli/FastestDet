@@ -9,6 +9,7 @@ import torch
 from utils.tool import *
 from module.detector import Detector
 from module.mobileone import *
+from module.repvgg import *
 
 if __name__ == '__main__':
     # 指定训练配置文件
@@ -50,6 +51,8 @@ if __name__ == '__main__':
     model.eval()
     if "MobileOne" in cfg.backbone:
         model = reparameterize_model(model)
+    if "RepVGG" in cfg.backbone:
+        model = repvgg_model_convert(model)
     
     # 数据预处理
     ori_img = cv2.imread(opt.img)
