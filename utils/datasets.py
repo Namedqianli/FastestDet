@@ -5,6 +5,8 @@ import numpy as np
 import torch
 import random
 
+from PIL import Image
+
 def random_crop(image, boxes):
     height, width, _ = image.shape
     # random crop imgage
@@ -61,18 +63,18 @@ def collate_fn(batch):
     return torch.stack(img), torch.cat(label, 0)
 
 class TensorDataset():
-    def __init__(self, path, img_width, img_height, aug=False):
+    def __init__(self, path, img_size_width = 352, img_size_height = 352, imgaug = False):
         assert os.path.exists(path), "%s文件路径错误或不存在" % path
 
-        self.aug = aug
         self.path = path
         self.data_list = []
-        self.img_width = img_width
-        self.img_height = img_height
+        self.img_width = img_size_width
+        self.img_height = img_size_height
         self.img_formats = ['bmp', 'jpg', 'jpeg', 'png']
+        self.aug = imgaug
 
         # 数据检查
-        with open(self.path, 'r') as f:
+        with open(self.path, 'r', encoding='utf8') as f:
             for line in f.readlines():
                 data_path = line.strip()
                 if os.path.exists(data_path):
@@ -95,7 +97,8 @@ class TensorDataset():
         label_path = "".join(img_name) + "txt"
 
         # 加载图片
-        img = cv2.imread(img_path)
+        img = Image.open(img_path)
+        img = cv2.cvtColor(np.asarray(img),cv2.COLOR_RGB2BGR)
         # 加载label文件
         if os.path.exists(label_path):
             label = []

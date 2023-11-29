@@ -152,7 +152,7 @@ class RepVGG(nn.Module):
 
     def __init__(self, num_blocks, num_classes=1000, width_multiplier=None, override_groups_map=None, deploy=False, use_se=False, use_checkpoint=False):
         super(RepVGG, self).__init__()
-        assert len(width_multiplier) == 4
+        # assert len(width_multiplier) == 4
         self.deploy = deploy
         self.override_groups_map = override_groups_map or dict()
         assert 0 not in self.override_groups_map
@@ -162,12 +162,24 @@ class RepVGG(nn.Module):
         self.in_planes = min(64, int(64 * width_multiplier[0]))
         self.stage0 = RepVGGBlock(in_channels=3, out_channels=self.in_planes, kernel_size=3, stride=2, padding=1, deploy=self.deploy, use_se=self.use_se)
         self.cur_layer_idx = 1
-        self.stage1 = self._make_stage(int(64 * width_multiplier[0]), num_blocks[0], stride=2)
-        self.stage2 = self._make_stage(int(128 * width_multiplier[1]), num_blocks[1], stride=2)
-        self.stage3 = self._make_stage(int(256 * width_multiplier[2]), num_blocks[2], stride=2)
-        self.stage4 = self._make_stage(int(512 * width_multiplier[3]), num_blocks[3], stride=2)
-        self.gap = nn.AdaptiveAvgPool2d(output_size=1)
-        self.linear = nn.Linear(int(512 * width_multiplier[3]), num_classes)
+        if len(width_multiplier) == 4:
+            self.stage1 = self._make_stage(int(64 * width_multiplier[0]), num_blocks[0], stride=2)
+            self.stage2 = self._make_stage(int(128 * width_multiplier[1]), num_blocks[1], stride=2)
+            self.stage3 = self._make_stage(int(256 * width_multiplier[2]), num_blocks[2], stride=2)
+            self.stage4 = self._make_stage(int(512 * width_multiplier[3]), num_blocks[3], stride=2)
+            self.stage = [self.stage1, self.stage2, self.stage3, self.stage4]
+
+            self.gap = nn.AdaptiveAvgPool2d(output_size=1)
+            self.linear = nn.Linear(int(512 * width_multiplier[3]), num_classes)
+        else:
+            self.stage1 = self._make_stage(int(64 * width_multiplier[0]), num_blocks[0], stride=2)
+            self.stage2 = self._make_stage(int(128 * width_multiplier[1]), num_blocks[1], stride=2)
+            self.stage3 = self._make_stage(int(256 * width_multiplier[2]), num_blocks[2], stride=2)
+            self.stage4 = self._make_stage(int(512 * width_multiplier[0]), num_blocks[0], stride=2)
+            self.stage = [self.stage1, self.stage2, self.stage3]
+
+            self.gap = nn.AdaptiveAvgPool2d(output_size=1)
+            self.linear = nn.Linear(int(512 * width_multiplier[0]), num_classes)
 
     def _make_stage(self, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -183,15 +195,18 @@ class RepVGG(nn.Module):
     def forward(self, x):
         out = self.stage0(x)
         stage_out = []
-        for stage in (self.stage1, self.stage2, self.stage3, self.stage4):
+        for stage in self.stage:
             for block in stage:
                 if self.use_checkpoint:
                     out = checkpoint.checkpoint(block, out)
                 else:
                     out = block(out)
             stage_out.append(out)
-            
-        return stage_out[1], stage_out[2], stage_out[3]
+        
+        if len(self.stage) == 4: 
+            return stage_out[1], stage_out[2], stage_out[3]
+        else:
+            return stage_out[0], stage_out[1], stage_out[2]
         # for stage in (self.stage1, self.stage2, self.stage3, self.stage4):
         #     for block in stage:
         #         if self.use_checkpoint:
@@ -207,6 +222,10 @@ class RepVGG(nn.Module):
 optional_groupwise_layers = [2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24, 26]
 g2_map = {l: 2 for l in optional_groupwise_layers}
 g4_map = {l: 4 for l in optional_groupwise_layers}
+
+def create_RepVGG_LPR(deploy=False, use_checkpoint=False):
+    return RepVGG(num_blocks=[1, 2, 2], num_classes=1000,
+                  width_multiplier=[1.0, 1.0, 1.0], override_groups_map=None, deploy=deploy, use_checkpoint=use_checkpoint)
 
 def create_RepVGG_A0(deploy=False, use_checkpoint=False):
     return RepVGG(num_blocks=[2, 4, 14, 1], num_classes=1000,
@@ -268,6 +287,7 @@ def create_RepVGG_D2se(deploy=False, use_checkpoint=False):
 
 
 func_dict = {
+'RepVGG_LPR': create_RepVGG_LPR,
 'RepVGG-A0': create_RepVGG_A0,
 'RepVGG-A1': create_RepVGG_A1,
 'RepVGG-A2': create_RepVGG_A2,

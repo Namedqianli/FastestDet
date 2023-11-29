@@ -62,6 +62,14 @@ class Detector(nn.Module):
             self.SPP = SPP(672, 336)
 
             self.detect_head = DetectHead(336, category_num)
+        elif backbone == 'RepVGG_LPR':
+            self.backbone = get_RepVGG_func_by_name('RepVGG_LPR')(deploy=False, use_checkpoint=False)
+
+            self.upsample = nn.Upsample(scale_factor=2, mode='nearest')
+            self.avg_pool = nn.AvgPool2d(kernel_size=3, stride=2, padding=1)
+            self.SPP = SPP(448, 336)
+
+            self.detect_head = DetectHead(336, category_num)
         elif 'MobileOne' in backbone:
             variant = backbone.split('_')[1]
             self.backbone = mobileone(variant=variant)
@@ -85,7 +93,7 @@ class Detector(nn.Module):
         return self.detect_head(y)
 
 if __name__ == "__main__":
-    model = Detector(80, False, 'MobileNet_V3_LARGE')
+    model = Detector(80, False, 'RepVGG_LPR')
     test_data = torch.rand(1, 3, 352, 352)
     torch.onnx.export(model,                    #model being run
                      test_data,                 # model input (or a tuple for multiple inputs)
